@@ -42,10 +42,12 @@ int main()
 	initMenu();
 	// 初始化游戏界面，画出食物、蛇体、地图
 	initGame();
-	while (1) 
+
+	while (1)
 	{
 		// 刷新一轮
 		show();
+		
 		// 被动事件改变状态
 		updateWithoutInput();
 		// 主动事件改变状态
@@ -118,6 +120,7 @@ void drawMenu()
 
 void menuInput()
 {
+	BeginBatchDraw();
 	if (_kbhit() && isFailure == 0)
 	{
 		char input = _getch();
@@ -143,13 +146,13 @@ void menuInput()
 
 		}
 	}
+	FlushBatchDraw();
 }
 
 void initGame() 
 {
 	// 设置背景色为 LIGHTGRAY，这并不是填充背景
 	setbkcolor(LIGHTGRAY);
-	BeginBatchDraw();
 	// 使用当前背景色 LIGHTGRAY 清空屏幕内容
 	cleardevice();
 	// 设置线条颜色为 WHITE
@@ -175,6 +178,7 @@ void initGame()
 
 void show() 
 {
+	BeginBatchDraw();
 	// 屏幕刷新一轮
 	for (int i = 0; i < width; i++)
 		for (int j = 0; j < height; j++) 
@@ -193,17 +197,20 @@ void show()
 	setfillcolor(LIGHTGREEN);
 	fillrectangle(foodX * size, foodY * size, (foodX + 1) * size, (foodY + 1) * size);
 
-	// 判负后提示游戏失败
+	// 如果判负
+	if (isFailure)
+		drawFailure();
+
+	// 执行未完成的绘制任务
+	FlushBatchDraw();
+
 	if (isFailure)
 	{
-		drawFailure();
 		isFailure = 0;
 		while (failureChoice != 2)
 			failureInput();
+		failureChoice = 0;
 	}
-
-	// 执行未完成的绘制任务
-	FlushBatchDraw(); 
 }
 
 void drawFailure()
@@ -251,7 +258,8 @@ void drawFailure()
 
 void failureInput()
 {
-	if (_kbhit() && isFailure == 1)
+	BeginBatchDraw();
+	if (_kbhit() && isFailure == 0)
 	{
 		char input = _getch();
 		// 向上或向下选择
@@ -277,6 +285,7 @@ void failureInput()
 			failureChoice = 2;
 		}
 	}
+	FlushBatchDraw();
 }
 
 void updateWithoutInput()
