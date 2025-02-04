@@ -3,13 +3,14 @@
 #include <conio.h>
 #include <time.h>
 
-#define WIDTH 200						// 支持的最大宽度
-#define HEIGHT 150						// 支持的最大高度
+#define WIDTH 800						// 支持的最大宽度
+#define HEIGHT 600						// 支持的最大高度
 
 int width = 40;							// 默认宽度
 int height = 30;						// 默认高度
 int size = 20;							// 实际绘画一格的步长
 
+int menuChoice = 0;						// 是否进入游戏
 int Blocks[WIDTH][HEIGHT] = { 0 };		// 标记网格对应坐标处是否被占位，0 为无占位
 char moveDirection, oldMoveDirection;	// 上一时刻与当前时刻的蛇头方向
 int foodX, foodY;						// 食物出现位置坐标
@@ -17,6 +18,8 @@ int delay = 10;							// 延迟
 int isFailure = 0;						// 游戏判负标志
 
 void initMenu();						// 初始化菜单
+void drawMenu();						// 绘制菜单
+void menuInput();						// 菜单状态下的输入
 void initGame();						// 初始化游戏界面
 void show();							// 每一次运行时重新绘制蛇和食物的图像
 void updateWithInput();					// 与输入有关的更新
@@ -25,6 +28,7 @@ void moveSnake();						// 蛇运动
 
 int main() 
 {
+	initgraph(WIDTH, HEIGHT);
 	// 初始化菜单界面，不进入游戏将不转入后续过程
 	initMenu();
 	// 初始化游戏界面，画出食物、蛇体、地图
@@ -43,8 +47,77 @@ int main()
 
 void initMenu()
 {
-	initgraph(800, 600);
-	// TODO
+	drawMenu();
+
+	// 当没有选定游戏开始并按下空格时持续检查输入
+	while (menuChoice != 2)
+	{
+		menuInput();
+	}
+}
+
+void drawMenu()
+{
+	drawDelay = 1;
+
+	setbkcolor(0xCCCCCC);
+	cleardevice();
+
+	LOGFONT f;
+	gettextstyle(&f);
+	f.lfHeight = 80;
+	f.lfWidth = 40;
+	f.lfWeight = 1000;
+	wcscpy_s(f.lfFaceName, _T("Consolas"));
+	f.lfQuality = ANTIALIASED_QUALITY;
+	settextcolor(0x000000);
+	setbkmode(TRANSPARENT);
+	settextstyle(&f);
+	outtextxy(220, 150, _T("--SNAKE--"));
+	f.lfHeight = 20;
+	f.lfWidth = 10;
+	settextstyle(&f);
+	outtextxy(285, 220, _T("(press space to choice)"));
+
+	f.lfHeight = 40;
+	f.lfWidth = 20;
+	f.lfWeight = 1000;
+	f.lfQuality = ANTIALIASED_QUALITY;
+	settextstyle(&f);
+
+	if (menuChoice == 0)
+	{
+		settextcolor(RED);
+		outtextxy(350, 320, _T("start"));
+		settextcolor(BLUE);
+		outtextxy(320, 380, _T("settings"));
+	}
+	else
+	{
+		settextcolor(BLUE);
+		outtextxy(350, 320, _T("start"));
+		settextcolor(RED);
+		outtextxy(320, 380, _T("settings"));
+	}
+}
+
+void menuInput()
+{
+	if (_kbhit() && isFailure == 0)
+	{
+		char input = _getch();
+		// 向上或向下选择
+		if (input == 'w' || input == 's')
+		{
+			menuChoice = 1 - menuChoice;
+			drawMenu();
+		}
+		// 空格选定
+		else if (input == ' ')
+		{
+			menuChoice = 2;
+		}
+	}
 }
 
 void initGame() 
@@ -98,9 +171,14 @@ void show()
 	// 判负后提示游戏失败
 	if (isFailure) 
 	{
+		LOGFONT f;
+		gettextstyle(&f);
+		f.lfHeight = 80;
+		wcscpy_s(f.lfFaceName, L"Consolas");
+		f.lfQuality = ANTIALIASED_QUALITY;
 		settextcolor(LIGHTBLUE);
-		settextstyle(80, 0, _T("黑体"));
 		setbkmode(TRANSPARENT);
+		settextstyle(&f);
 		outtextxy(240, 220, _T("Failed"));
 	}
 
@@ -127,7 +205,7 @@ void updateWithoutInput()
 void updateWithInput() 
 {
 	// _kbhit() 检查是否有键按下
-	if (_kbhit() && isFailure == 0) 
+	if (_kbhit() && isFailure == 0)
 	{
 		// 获取一次输入，根据输入字符转换蛇体移动方向
 		char input = _getch();
