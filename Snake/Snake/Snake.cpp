@@ -3,6 +3,8 @@
 #include <conio.h>
 #include <time.h>
 
+#pragma comment( lib, "MSIMG32.LIB")
+
 #define WIDTH 800						// 支持的最大宽度
 #define HEIGHT 600						// 支持的最大高度
 
@@ -10,12 +12,16 @@ int width = 40;							// 默认宽度
 int height = 30;						// 默认高度
 int size = 20;							// 实际绘画一格的步长
 
+IMAGE menuImg;							// 菜单图片
+char title[9][2] = { "-", "-", "S", "N", "A", "K", "E", "-", "-" };				// 游戏标题
+char failure[10][2] = { "-", "-", "F", "A", "I", "L", "E", "D", "-", "-" };		// 游戏标题
 int menuChoice = 0;						// 是否进入游戏
 int Blocks[WIDTH][HEIGHT] = { 0 };		// 标记网格对应坐标处是否被占位，0 为无占位
 char moveDirection, oldMoveDirection;	// 上一时刻与当前时刻的蛇头方向
 int foodX, foodY;						// 食物出现位置坐标
 int delay = 10;							// 延迟
 int isFailure = 0;						// 游戏判负标志
+int failureChoice = 0;					// 失败后选项标记
 
 void initMenu();						// 初始化菜单
 void drawMenu();						// 绘制菜单
@@ -25,6 +31,9 @@ void show();							// 每一次运行时重新绘制蛇和食物的图像
 void updateWithInput();					// 与输入有关的更新
 void updateWithoutInput();				// 与输入无关的更新
 void moveSnake();						// 蛇运动
+void drawFailure();						// 游戏失败处理面板
+void failureInput();					// 失败状态下的输入
+void transparentimage(IMAGE* dstimg, int x, int y, IMAGE* srcimg);					// 图片底色透明化处理
 
 int main() 
 {
@@ -47,38 +56,44 @@ int main()
 
 void initMenu()
 {
+	loadimage(&menuImg, "./menu.png");
 	drawMenu();
 
 	// 当没有选定游戏开始并按下空格时持续检查输入
 	while (menuChoice != 2)
-	{
 		menuInput();
-	}
 }
 
 void drawMenu()
 {
-	drawDelay = 1;
-
-	setbkcolor(0xCCCCCC);
+	setbkcolor(0xD4E1E5);
 	cleardevice();
+
+	transparentimage(NULL, 6, 1, &menuImg);
 
 	LOGFONT f;
 	gettextstyle(&f);
-	f.lfHeight = 80;
-	f.lfWidth = 40;
+	f.lfHeight = 100;
+	f.lfWidth = 50;
 	f.lfWeight = 1000;
-	wcscpy_s(f.lfFaceName, _T("Consolas"));
+	strcpy_s(f.lfFaceName, _T("Consolas"));
 	f.lfQuality = ANTIALIASED_QUALITY;
-	settextcolor(0x000000);
 	setbkmode(TRANSPARENT);
 	settextstyle(&f);
-	outtextxy(220, 150, _T("--SNAKE--"));
+	for (int i = 0; i < 9; i++)
+	{
+		settextcolor(HSVtoRGB((i + 1) * 10, 0.9, 1));
+		outtextxy(175 + i * 50, 150, _T(title[i]));
+	}
+
+	// 提示按下空格选中
 	f.lfHeight = 20;
 	f.lfWidth = 10;
 	settextstyle(&f);
-	outtextxy(285, 220, _T("(press space to choice)"));
+	settextcolor(0x000000);
+	outtextxy(285, 240, _T("(press space to choice)"));
 
+	// 菜单的两个选项
 	f.lfHeight = 40;
 	f.lfWidth = 20;
 	f.lfWeight = 1000;
@@ -87,17 +102,17 @@ void drawMenu()
 
 	if (menuChoice == 0)
 	{
-		settextcolor(RED);
-		outtextxy(350, 320, _T("start"));
-		settextcolor(BLUE);
-		outtextxy(320, 380, _T("settings"));
+		settextcolor(0x3E03FE);
+		outtextxy(350, 340, _T("start"));
+		settextcolor(0xFE0303);
+		outtextxy(320, 400, _T("settings"));
 	}
 	else
 	{
-		settextcolor(BLUE);
-		outtextxy(350, 320, _T("start"));
-		settextcolor(RED);
-		outtextxy(320, 380, _T("settings"));
+		settextcolor(0xFE0303);
+		outtextxy(350, 340, _T("start"));
+		settextcolor(0x3E03FE);
+		outtextxy(320, 400, _T("settings"));
 	}
 }
 
@@ -107,15 +122,25 @@ void menuInput()
 	{
 		char input = _getch();
 		// 向上或向下选择
-		if (input == 'w' || input == 's')
+		if (input == 'w' && menuChoice == 1)
 		{
 			menuChoice = 1 - menuChoice;
 			drawMenu();
 		}
-		// 空格选定
-		else if (input == ' ')
+		else if (input == 's' && menuChoice == 0)
+		{
+			menuChoice = 1 - menuChoice;
+			drawMenu();
+		}
+		// 空格选定开始
+		else if (input == ' ' && menuChoice == 0)
 		{
 			menuChoice = 2;
+		}
+		// 空格选定游戏设置
+		else if (input == ' ' && menuChoice == 1)
+		{
+
 		}
 	}
 }
@@ -169,21 +194,89 @@ void show()
 	fillrectangle(foodX * size, foodY * size, (foodX + 1) * size, (foodY + 1) * size);
 
 	// 判负后提示游戏失败
-	if (isFailure) 
+	if (isFailure)
 	{
-		LOGFONT f;
-		gettextstyle(&f);
-		f.lfHeight = 80;
-		wcscpy_s(f.lfFaceName, L"Consolas");
-		f.lfQuality = ANTIALIASED_QUALITY;
-		settextcolor(LIGHTBLUE);
-		setbkmode(TRANSPARENT);
-		settextstyle(&f);
-		outtextxy(240, 220, _T("Failed"));
+		drawFailure();
+		isFailure = 0;
+		while (failureChoice != 2)
+			failureInput();
 	}
 
 	// 执行未完成的绘制任务
 	FlushBatchDraw(); 
+}
+
+void drawFailure()
+{
+	setbkcolor(0xD4E1E5);
+	cleardevice();
+
+	LOGFONT f;
+	gettextstyle(&f);
+	f.lfHeight = 100;
+	f.lfWidth = 50;
+	strcpy_s(f.lfFaceName, _T("Consolas"));
+	f.lfQuality = ANTIALIASED_QUALITY;
+	settextcolor(BLACK);
+	setbkmode(TRANSPARENT);
+	settextstyle(&f);
+	for (int i = 0; i < 10; i++)
+	{
+		settextcolor(HSVtoRGB((i + 1) * 10, 0.9, 1));
+		outtextxy(150 + i * 50, 150, _T(failure[i]));
+	}
+
+	// 失败的两个选项
+	f.lfHeight = 40;
+	f.lfWidth = 20;
+	f.lfWeight = 1000;
+	f.lfQuality = ANTIALIASED_QUALITY;
+	settextstyle(&f);
+
+	if (failureChoice == 0)
+	{
+		settextcolor(0x3E03FE);
+		outtextxy(330, 340, _T("restart"));
+		settextcolor(0xFE0303);
+		outtextxy(360, 400, _T("menu"));
+	}
+	else
+	{
+		settextcolor(0xFE0303);
+		outtextxy(330, 340, _T("restart"));
+		settextcolor(0x3E03FE);
+		outtextxy(360, 400, _T("menu"));
+	}
+}
+
+void failureInput()
+{
+	if (_kbhit() && isFailure == 1)
+	{
+		char input = _getch();
+		// 向上或向下选择
+		if (input == 'w' && failureChoice == 1)
+		{
+			failureChoice = 1 - failureChoice;
+			drawFailure();
+		}
+		else if (input == 's' && failureChoice == 0)
+		{
+			failureChoice = 1 - failureChoice;
+			drawFailure();
+		}
+		// 空格选定重新游戏
+		else if (input == ' ' && failureChoice == 0)
+		{
+			// TODO
+			failureChoice = 2;
+		}
+		// 空格选定菜单
+		else if (input == ' ' && failureChoice == 1)
+		{
+			failureChoice = 2;
+		}
+	}
 }
 
 void updateWithoutInput()
@@ -295,4 +388,14 @@ void moveSnake()
 	}
 	else
 		Blocks[oldTailX][oldTailY] = 0;
+}
+
+void transparentimage(IMAGE* dstimg, int x, int y, IMAGE* srcimg)
+{
+	HDC dstDC = GetImageHDC(dstimg);
+	HDC srcDC = GetImageHDC(srcimg);
+	int w = srcimg->getwidth();
+	int h = srcimg->getheight();
+	BLENDFUNCTION bf = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
+	AlphaBlend(dstDC, x, y, w, h, srcDC, 0, 0, w, h, bf);
 }
