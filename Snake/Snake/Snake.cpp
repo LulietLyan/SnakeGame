@@ -12,6 +12,7 @@ int width = 40;							// 默认宽度
 int height = 30;						// 默认高度
 int size = 20;							// 实际绘画一格的步长
 
+int gameOver = 0;						// 游戏结束
 IMAGE menuImg;							// 菜单图片
 char title[9][2] = { "-", "-", "S", "N", "A", "K", "E", "-", "-" };				// 游戏标题
 char failure[10][2] = { "-", "-", "F", "A", "I", "L", "E", "D", "-", "-" };		// 游戏标题
@@ -43,7 +44,7 @@ int main()
 	// 初始化游戏界面，画出食物、蛇体、地图
 	initGame();
 
-	while (1)
+	while (!gameOver)
 	{
 		// 刷新一轮
 		show();
@@ -62,8 +63,9 @@ void initMenu()
 	drawMenu();
 
 	// 当没有选定游戏开始并按下空格时持续检查输入
-	while (menuChoice != 2)
+	while (menuChoice != 3)
 		menuInput();
+	menuChoice = 0;
 }
 
 void drawMenu()
@@ -95,7 +97,7 @@ void drawMenu()
 	settextcolor(0x000000);
 	outtextxy(285, 240, _T("(press space to choice)"));
 
-	// 菜单的两个选项
+	// 菜单界面的三个选项
 	f.lfHeight = 40;
 	f.lfWidth = 20;
 	f.lfWeight = 1000;
@@ -104,17 +106,39 @@ void drawMenu()
 
 	if (menuChoice == 0)
 	{
+		// 选中，鲜红
 		settextcolor(0x3E03FE);
 		outtextxy(350, 340, _T("start"));
+		// 未选中，亮蓝
 		settextcolor(0xFE0303);
 		outtextxy(320, 400, _T("settings"));
+		// 未选中，亮蓝
+		settextcolor(0xFE0303);
+		outtextxy(360, 460, _T("exit"));
 	}
-	else
+	else if(menuChoice == 1)
 	{
+		// 未选中，亮蓝
 		settextcolor(0xFE0303);
 		outtextxy(350, 340, _T("start"));
+		// 选中，鲜红
 		settextcolor(0x3E03FE);
 		outtextxy(320, 400, _T("settings"));
+		// 未选中，亮蓝
+		settextcolor(0xFE0303);
+		outtextxy(360, 460, _T("exit"));
+	}
+	else if (menuChoice == 2)
+	{
+		// 未选中，亮蓝
+		settextcolor(0xFE0303);
+		outtextxy(350, 340, _T("start"));
+		// 未选中，亮蓝
+		settextcolor(0xFE0303);
+		outtextxy(320, 400, _T("settings"));
+		// 选中，鲜红
+		settextcolor(0x3E03FE);
+		outtextxy(360, 460, _T("exit"));
 	}
 }
 
@@ -125,25 +149,31 @@ void menuInput()
 	{
 		char input = _getch();
 		// 向上或向下选择
-		if (input == 'w' && menuChoice == 1)
+		if (input == 'w' && menuChoice != 0)
 		{
-			menuChoice = 1 - menuChoice;
+			menuChoice--;
 			drawMenu();
 		}
-		else if (input == 's' && menuChoice == 0)
+		else if (input == 's' && menuChoice !=2)
 		{
-			menuChoice = 1 - menuChoice;
+			menuChoice++;
 			drawMenu();
 		}
 		// 空格选定开始
 		else if (input == ' ' && menuChoice == 0)
 		{
-			menuChoice = 2;
+			menuChoice = 3;
 		}
 		// 空格选定游戏设置
 		else if (input == ' ' && menuChoice == 1)
 		{
 
+		}
+		// 空格选定退出游戏
+		else if (input == ' ' && menuChoice == 2)
+		{
+			menuChoice = 3;
+			gameOver = 1;
 		}
 	}
 	FlushBatchDraw();
@@ -151,6 +181,8 @@ void menuInput()
 
 void initGame() 
 {
+	// 清空游戏记录很重要，失败重启时不能有任何以往记录
+	memset(Blocks, 0, sizeof Blocks);
 	// 设置背景色为 LIGHTGRAY，这并不是填充背景
 	setbkcolor(LIGHTGRAY);
 	// 使用当前背景色 LIGHTGRAY 清空屏幕内容
@@ -198,16 +230,18 @@ void show()
 	fillrectangle(foodX * size, foodY * size, (foodX + 1) * size, (foodY + 1) * size);
 
 	// 如果判负
-	if (isFailure)
-		drawFailure();
+	//if (isFailure)
+		
 
 	// 执行未完成的绘制任务
 	FlushBatchDraw();
 
 	if (isFailure)
 	{
+
+		drawFailure();
 		isFailure = 0;
-		while (failureChoice != 2)
+		while (failureChoice != 3)
 			failureInput();
 		failureChoice = 0;
 	}
@@ -233,7 +267,7 @@ void drawFailure()
 		outtextxy(150 + i * 50, 150, _T(failure[i]));
 	}
 
-	// 失败的两个选项
+	// 失败界面的三个选项
 	f.lfHeight = 40;
 	f.lfWidth = 20;
 	f.lfWeight = 1000;
@@ -242,17 +276,39 @@ void drawFailure()
 
 	if (failureChoice == 0)
 	{
+		// 选中，鲜红
 		settextcolor(0x3E03FE);
 		outtextxy(330, 340, _T("restart"));
+		// 未选中，亮蓝
 		settextcolor(0xFE0303);
 		outtextxy(360, 400, _T("menu"));
+		// 未选中，亮蓝
+		settextcolor(0xFE0303);
+		outtextxy(360, 460, _T("exit"));
 	}
-	else
+	else if(failureChoice == 1)
 	{
+		// 未选中，亮蓝
 		settextcolor(0xFE0303);
 		outtextxy(330, 340, _T("restart"));
+		// 选中，鲜红
 		settextcolor(0x3E03FE);
 		outtextxy(360, 400, _T("menu"));
+		// 未选中，亮蓝
+		settextcolor(0xFE0303);
+		outtextxy(360, 460, _T("exit"));
+	}
+	else if (failureChoice == 2)
+	{
+		// 未选中，亮蓝
+		settextcolor(0xFE0303);
+		outtextxy(330, 340, _T("restart"));
+		// 未选中，亮蓝
+		settextcolor(0xFE0303);
+		outtextxy(360, 400, _T("menu"));
+		// 选中，鲜红
+		settextcolor(0x3E03FE);
+		outtextxy(360, 460, _T("exit"));
 	}
 }
 
@@ -263,26 +319,32 @@ void failureInput()
 	{
 		char input = _getch();
 		// 向上或向下选择
-		if (input == 'w' && failureChoice == 1)
+		if (input == 'w' && failureChoice != 0)
 		{
-			failureChoice = 1 - failureChoice;
+			failureChoice--;
 			drawFailure();
 		}
-		else if (input == 's' && failureChoice == 0)
+		else if (input == 's' && failureChoice != 2)
 		{
-			failureChoice = 1 - failureChoice;
+			failureChoice++;
 			drawFailure();
 		}
 		// 空格选定重新游戏
 		else if (input == ' ' && failureChoice == 0)
 		{
-			// TODO
-			failureChoice = 2;
+			failureChoice = 3;
+			initGame();
 		}
 		// 空格选定菜单
 		else if (input == ' ' && failureChoice == 1)
 		{
-			failureChoice = 2;
+			failureChoice = 3;
+		}
+		// 空格选定退出游戏
+		else if (input == ' ' && failureChoice == 2)
+		{
+			failureChoice = 3;
+			gameOver = 1;
 		}
 	}
 	FlushBatchDraw();

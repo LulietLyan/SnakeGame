@@ -1,9 +1,9 @@
 ﻿  Snake.cpp
 C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\VS\include\graphics.h(1,1): warning C4828: 文件包含在偏移 0x19d3 处开始的字符，该字符在当前源字符集中无效(代码页 936)。
-C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(87,39): warning C4305: “参数”: 从“double”到“float”截断
-C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(87,33): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
-C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(188,46): warning C4305: “参数”: 从“double”到“float”截断
-C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(188,40): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
-C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(232,39): warning C4305: “参数”: 从“double”到“float”截断
-C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(232,33): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
+C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(89,39): warning C4305: “参数”: 从“double”到“float”截断
+C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(89,33): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
+C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(220,46): warning C4305: “参数”: 从“double”到“float”截断
+C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(220,40): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
+C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(266,39): warning C4305: “参数”: 从“double”到“float”截断
+C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\Snake\Snake.cpp(266,33): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
   Snake.vcxproj -> C:\Users\10788\Desktop\Remote Repository\SnakeGame\Snake\x64\Debug\Snake.exe
