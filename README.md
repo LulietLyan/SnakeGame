@@ -1,6 +1,6 @@
-<center><font size=10 color=black><b>SnakeGame</b></font></center>
+<p align=center><font size=10 color=black><b>SnakeGame</b></font></p>
 
-<center><font size=5 color=black>--Based on EasyX</font></center>
+<p align=center><font size=5 color=black>--Based on Console</font></p>
 
 # 目录
 [TOC]
