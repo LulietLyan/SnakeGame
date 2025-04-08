@@ -1,839 +1,386 @@
-﻿#include <cstdio>
-#include <cstdlib>
-#include <graphics.h>
+﻿#include <graphics.h>
 #include <easyx.h>
-#include <conio.h>
-#include <time.h>
-#pragma comment( lib, "MSIMG32.LIB")
-#define WIDTH 800						// 支持的最大宽度
-#define HEIGHT 600						// 支持的最大高度
+#include <deque>
+#include <queue>
+#include <vector>
+#include <ctime>
+using namespace std;
 
-// ---------------------------------------------------------------------------------------------------------- //
-// ---------------------------------------------公共变量区域------------------------------------------------- //
-// ---------------------------------------------------------------------------------------------------------- //
-//																											| //
-int width = 40;							// 默认宽度															| //
-int height = 30;						// 默认高度															| //
-int size = 20;							// 实际绘画一格的步长												| //
-int skinIndex = 0;						// 皮肤编号															| //
-char skin[4][10] = {"DEFAULT", "SIMPLE", "PUNK", "SEA"};								// 皮肤描述			| //
-int backgroundColor[4] = { 0xD4E1E5, WHITE, 0x920094, 0x4954C2 };						// 背景颜色			| //
-int lineColor[4] = { WHITE , WHITE, 0xDBB5D9, 0xB5B9DB };								// 线颜色			| //
-int gridColor[4] = {LIGHTGRAY, BLACK, 0x8D3CAA, 0x4953AF };								// 网格颜色			| //
-//																											| //
-int gameOver = 0;						// 游戏结束标记														| //
-IMAGE menuImg;							// 菜单图片															| //
-char title[9][2] = { "-", "-", "S", "N", "A", "K", "E", "-", "-" };						// 游戏标题			| //
-char failure[10][2] = { "-", "-", "F", "A", "I", "L", "E", "D", "-", "-" };				// 失败标题			| //
-char win[10][2] = { "-", "-", "W", "I", "N", "-", "-" };								// 成功标题			| //
-char settings[12][2] = { "-", "-", "S", "E", "T", "T", "I", "N", "G", "S", "-", "-" };	// 设置标题			| //
-int menuChoice = 0;						// 是否进入游戏														| //
-int settingsChoice = 0;					// 是否退出设置														| //
-int Blocks[WIDTH][HEIGHT] = { 0 };		// 标记网格对应坐标处是否被占位，0 为无占位							| //
-char moveDirection, oldMoveDirection;	// 上一时刻与当前时刻的蛇头方向										| //
-int foodX, foodY;						// 食物出现位置坐标													| //
-int score = 0;							// 分数																| //
-int delay = 102;						// 刷新延迟															| //
-int isFailure = 0;						// 游戏判胜负标志，游戏中为 0，负为 1，胜为 2						| //
-int failureChoice = 0;					// 失败后选项标记													| //
-//																											| //
-char* int_to_string(int num);			// int 转 char 数组													| //
-void initMenu();						// 初始化菜单界面													| //
-void drawMenu();						// 绘制菜单界面														| //
-void menuInput();						// 菜单界面下的输入													| //
-void initSettings();					// 初始化设置界面													| //
-void drawSettings();					// 绘制设置界面														| //
-void settingsInput();					// 设置界面下的输入													| //
-void initGame();						// 初始化游戏界面													| //
-void show();							// 每一次运行时重新绘制蛇和食物的图像								| //
-void updateWithInput();					// 与输入有关的更新													| //
-void updateWithoutInput();				// 与输入无关的更新													| //
-void moveSnake();						// 蛇运动															| //
-void initFailure();						// 初始化失败界面													| //
-void drawFailure();						// 绘制失败界面														| //
-void failureInput();					// 失败界面下的输入													| //
-void transparentimage(IMAGE* dstimg, int x, int y, IMAGE* srcimg);				// 图片底色透明化处理		| //
-//																											| //
-// ---------------------------------------------------------------------------------------------------------- //
-// ---------------------------------------------公共变量区域------------------------------------------------- //
-// ---------------------------------------------------------------------------------------------------------- //
+// 自定义颜色定义
+#define DARKGREEN RGB(0,100,0)
+#define PURPLE RGB(128,0,128)
+#define ORANGE RGB(255,165,0)
 
-int main() 
+// 窗口和游戏设置
+const int WIDTH = 800;
+const int HEIGHT = 600;
+int gridSize = 20;
+int cols = WIDTH / gridSize;
+int rows = HEIGHT / gridSize;
+
+// 移动速度
+int baseSpeed = 200;    // 基础速度（毫秒）
+int speedLevel = 3;      // 当前速度等级（1-5）
+const int MAX_SPEED = 5; // 最大速度等级
+const int MIN_SPEED = 1; // 最小速度等级
+
+// 颜色主题结构体
+struct Theme
 {
-	initgraph(WIDTH, HEIGHT);
-	// 初始化菜单界面，不进入游戏将不转入后续过程
-	initMenu();
-	// 初始化游戏界面，画出食物、蛇体、地图
-	initGame();
+    COLORREF head;
+    COLORREF body;
+    COLORREF food;
+    COLORREF bg;
+    COLORREF grid;
+};
 
-	while (!gameOver)
-	{
-		// 刷新一轮
-		show();
-		// 被动事件改变状态
-		updateWithoutInput();
-		// 主动事件改变状态
-		updateWithInput();
-	}
+vector<Theme> themes = {
+    { GREEN,  DARKGREEN,   RED,      RGB(240,240,240), LIGHTGRAY },
+    { PURPLE, RGB(255,0,255), ORANGE,   RGB(230,230,250), RGB(200,200,200) },
+    { CYAN,   BLUE,        RED,      RGB(173,216,230), RGB(150,150,150) },
+    { RGB(255,105,180), RGB(255,182,193), ORANGE,   RGB(255,250,240), RGB(170,170,170) },
+    { RGB(147,112,219), RGB(216,191,216), RGB(0,255,0), RGB(230,230,250), RGB(200,200,200) },  // 紫罗兰主题
+    { RGB(255,99,71),  RGB(255,160,122), RGB(0,206,209), RGB(245,245,220), RGB(150,150,150) }  // 珊瑚色主题
+};
+int themeIndex = 0;
 
-	return 0;
+enum Direction { STOP, UP, DOWN, LEFT, RIGHT };
+Direction nextDir = STOP;
+
+struct Snake
+{
+    deque<pair<int, int>> body;
+    Direction dir = RIGHT;
+} snake;
+
+pair<int, int> food;
+int score = 0;
+bool autoMode = false;
+bool gameover = false;
+
+// 键盘输入处理（替代kbhit/getch）
+bool KeyPressed(int vkey)
+{
+    return GetAsyncKeyState(vkey) & 0x8000;
 }
 
-void initMenu()
+int GetKey()
 {
-	loadimage(&menuImg, _T("PNG"), _T("MENU"));
-	drawMenu();
+    static int keyMap[] = {
+        'W', VK_UP,
+        'S', VK_DOWN,
+        'A', VK_LEFT,
+        'D', VK_RIGHT,
+        VK_SPACE, 'C', 'R', VK_OEM_PLUS, VK_OEM_MINUS,
+        'F', 'G'
+    };
 
-	// 当没有选定触发项并按下空格时持续检查输入
-	while (menuChoice != 3)
-		menuInput();
-	menuChoice = 0;
+    for (int i = 0; i < sizeof(keyMap) / sizeof(int); i++)
+    {
+        if (KeyPressed(keyMap[i]))
+            return keyMap[i];
+    }
+    return 0;
 }
 
-void drawMenu()
-{
-	setbkcolor(backgroundColor[skinIndex]);
-	cleardevice();
-
-	transparentimage(NULL, 6, 1, &menuImg);
-
-	LOGFONT f;
-	gettextstyle(&f);
-	f.lfHeight = 100;
-	f.lfWidth = 50;
-	f.lfWeight = 1000;
-	strcpy_s(f.lfFaceName, _T("Consolas"));
-	f.lfQuality = ANTIALIASED_QUALITY;
-	setbkmode(TRANSPARENT);
-	settextstyle(&f);
-	for (int i = 0; i < 9; i++)
-	{
-		settextcolor(HSVtoRGB((i + 1) * 10, 0.9, 1));
-		outtextxy(175 + i * 50, 150, _T(title[i]));
-	}
-
-	// 提示按下空格选中
-	f.lfHeight = 20;
-	f.lfWidth = 10;
-	settextstyle(&f);
-	settextcolor(0x000000);
-	outtextxy(285, 240, _T("(press space to choice)"));
-
-	// 菜单界面的三个选项
-	f.lfHeight = 40;
-	f.lfWidth = 20;
-	f.lfWeight = 1000;
-	f.lfQuality = ANTIALIASED_QUALITY;
-	settextstyle(&f);
-
-	if (menuChoice == 0)
-	{
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(350, 340, _T("start"));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(320, 400, _T("settings"));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 460, _T("exit"));
-	}
-	else if(menuChoice == 1)
-	{
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(350, 340, _T("start"));
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(320, 400, _T("settings"));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 460, _T("exit"));
-	}
-	else if (menuChoice == 2)
-	{
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(350, 340, _T("start"));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(320, 400, _T("settings"));
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(360, 460, _T("exit"));
-	}
-}
-
-void menuInput()
-{
-	BeginBatchDraw();
-	if (_kbhit())
-	{
-		char input = _getch();
-		// 向上或向下选择
-		if (input == 'w' && menuChoice != 0)
-		{
-			menuChoice--;
-			drawMenu();
-		}
-		else if (input == 's' && menuChoice !=2)
-		{
-			menuChoice++;
-			drawMenu();
-		}
-		// 空格选定开始
-		else if (input == ' ' && menuChoice == 0)
-		{
-			menuChoice = 3;
-		}
-		// 空格选定游戏设置
-		else if (input == ' ' && menuChoice == 1)
-		{
-			initSettings();
-			drawMenu();
-		}
-		// 空格选定退出游戏
-		else if (input == ' ' && menuChoice == 2)
-		{
-			menuChoice = 3;
-			gameOver = 1;
-		}
-	}
-	FlushBatchDraw();
-}
-
-void initSettings()
-{
-	drawSettings();
-	while (settingsChoice != 6)
-		settingsInput();
-	settingsChoice = 0;
-}
-
-void drawSettings()
-{
-	setbkcolor(backgroundColor[skinIndex]);
-	cleardevice();
-
-	LOGFONT f;
-	gettextstyle(&f);
-	f.lfHeight = 100;
-	f.lfWidth = 50;
-	f.lfWeight = 1000;
-	strcpy_s(f.lfFaceName, _T("Consolas"));
-	f.lfQuality = ANTIALIASED_QUALITY;
-	setbkmode(TRANSPARENT);
-	settextstyle(&f);
-	for (int i = 0; i < 12; i++)
-	{
-		settextcolor(HSVtoRGB((i + 1) * 10, 0.9, 1));
-		outtextxy(100 + i * 50, 80, _T(settings[i]));
-	}
-
-	// 提示按下空格选中
-	f.lfHeight = 20;
-	f.lfWidth = 10;
-	settextstyle(&f);
-	settextcolor(0x000000);
-	outtextxy(260, 170, _T("(press 'a' or 'd' to change)"));
-
-	// 设置界面的四个选项
-	f.lfHeight = 40;
-	f.lfWidth = 20;
-	f.lfWeight = 1000;
-	f.lfQuality = ANTIALIASED_QUALITY;
-	settextstyle(&f);
-	
-	char widthString[10], heightString[10], gridSizeString[10],  delayString[10];
-
-	sprintf_s(widthString, "%d", width);
-	sprintf_s(heightString, "%d", height);
-	sprintf_s(gridSizeString, "%d", size);
-	sprintf_s(delayString, "%d", 10002 - delay);
-
-
-	if (settingsChoice == 0)
-	{
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(230, 230, _T("width    >>  ")), outtextxy(490, 230, _T(widthString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 290, _T("height   >>  ")), outtextxy(490, 290, _T(heightString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 350, _T("grid size>>  ")), outtextxy(490, 350, _T(gridSizeString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 410, _T("speed    >>  ")), outtextxy(490, 410, _T(delayString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 470, _T("skin     >>  ")), outtextxy(490, 470, _T(skin[skinIndex]));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 530, _T("back"));
-	}
-	else if (settingsChoice == 1)
-	{
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 230, _T("width    >>  ")), outtextxy(490, 230, _T(widthString));
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(230, 290, _T("height   >>  ")), outtextxy(490, 290, _T(heightString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 350, _T("grid size>>  ")), outtextxy(490, 350, _T(gridSizeString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 410, _T("speed    >>  ")), outtextxy(490, 410, _T(delayString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 470, _T("skin     >>  ")), outtextxy(490, 470, _T(skin[skinIndex]));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 530, _T("back"));
-	}
-	else if (settingsChoice == 2)
-	{
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 230, _T("width    >>  ")), outtextxy(490, 230, _T(widthString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 290, _T("height   >>  ")), outtextxy(490, 290, _T(heightString));
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(230, 350, _T("grid size>>  ")), outtextxy(490, 350, _T(gridSizeString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 410, _T("speed    >>  ")), outtextxy(490, 410, _T(delayString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 470, _T("skin     >>  ")), outtextxy(490, 470, _T(skin[skinIndex]));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 530, _T("back"));
-	}
-	else if (settingsChoice == 3)
-	{
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 230, _T("width    >>  ")), outtextxy(490, 230, _T(widthString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 290, _T("height   >>  ")), outtextxy(490, 290, _T(heightString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 350, _T("grid size>>  ")), outtextxy(490, 350, _T(gridSizeString));
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(230, 410, _T("speed    >>  ")), outtextxy(490, 410, _T(delayString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 470, _T("skin     >>  ")), outtextxy(490, 470, _T(skin[skinIndex]));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 530, _T("back"));
-	}
-	else if (settingsChoice == 4)
-	{
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 230, _T("width    >>  ")), outtextxy(490, 230, _T(widthString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 290, _T("height   >>  ")), outtextxy(490, 290, _T(heightString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 350, _T("grid size>>  ")), outtextxy(490, 350, _T(gridSizeString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 410, _T("speed    >>  ")), outtextxy(490, 410, _T(delayString));
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(230, 470, _T("skin     >>  ")), outtextxy(490, 470, _T(skin[skinIndex]));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 530, _T("back"));
-	}
-	else if (settingsChoice == 5)
-	{
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 230, _T("width    >>  ")), outtextxy(490, 230, _T(widthString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 290, _T("height   >>  ")), outtextxy(490, 290, _T(heightString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 350, _T("grid size>>  ")), outtextxy(490, 350, _T(gridSizeString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 410, _T("speed    >>  ")), outtextxy(490, 410, _T(delayString));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(230, 470, _T("skin     >>  ")), outtextxy(490, 470, _T(skin[skinIndex]));
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(360, 530, _T("back"));
-	}
-}
-
-void settingsInput()
-{
-	BeginBatchDraw();
-
-	if (_kbhit())
-	{
-		char input = _getch();
-		// 向上或向下选择
-		if (input == 'w' && settingsChoice != 0)
-		{
-			settingsChoice--;
-			drawSettings();
-		}
-		else if (input == 's' && settingsChoice != 5)
-		{
-			settingsChoice++;
-			drawSettings();
-		}
-		// 修改宽度属性
-		else if ((input == 'a' || input == 'd') && settingsChoice == 0)
-		{
-			if (input == 'a' && width > 3)
-			{
-				width--;
-				drawSettings();
-			}
-			else if (input == 'd' && width < 40 && (size * width < WIDTH && size * height < HEIGHT))
-			{
-				width++;
-				drawSettings();
-			}
-		}
-		// 修改高度属性
-		else if ((input == 'a' || input == 'd') && settingsChoice == 1)
-		{
-			if (input == 'a' && height > 3)
-			{
-				height--;
-				drawSettings();
-			}
-			else if (input == 'd' && height < 30 && (size * width < WIDTH && size * height < HEIGHT))
-			{
-				height++;
-				drawSettings();
-			}
-		}
-		// 修改网格大小属性
-		else if ((input == 'a' || input == 'd') && settingsChoice == 2)
-		{
-			if (input == 'a' && size > 1)
-			{
-				size--;
-				drawSettings();
-			}
-			else if (input == 'd' && (size * width < WIDTH && size * height < HEIGHT))
-			{
-				size++;
-				drawSettings();
-			}
-		}
-		// 修改移速属性
-		else if ((input == 'a' || input == 'd') && settingsChoice == 3)
-		{
-			if (input == 'a' && delay < 10000)
-			{
-				delay += 100;
-				drawSettings();
-			}
-			else if(input == 'd' && delay > 2)
-			{
-				delay -=100;
-				drawSettings();
-			}
-		}
-		// 修改皮肤属性
-		else if ((input == 'a' || input == 'd') && settingsChoice == 4)
-		{
-			if (input == 'a' && skinIndex > 0)
-			{
-				skinIndex--;
-				drawSettings();
-			}
-			else if(input == 'd' && skinIndex < 3)
-			{
-				skinIndex++;
-				drawSettings();
-			}
-		}
-		// 空格选定退出游戏
-		else if (input == ' ' && settingsChoice == 5)
-			settingsChoice = 6;
-	}
-
-	FlushBatchDraw();
-}
-
+// 初始化游戏
 void initGame()
 {
-	// 清空游戏记录很重要，失败重启时不能有任何以往记录
-	score = 0, memset(Blocks, 0, sizeof Blocks);
-	// 设置背景色为 LIGHTGRAY，这并不是填充背景
-	setbkcolor(backgroundColor[skinIndex]);
-	// 使用当前背景色 LIGHTGRAY 清空屏幕内容
-	cleardevice();
-	// 设置线条颜色为 WHITE
-	setlinecolor(lineColor[skinIndex]);
-	// 绘制线条，呈现网格效果
-	for (int i = size; i < height * size; i += size)
-		line((WIDTH - width * size) / 2 + i, (HEIGHT - height * size) / 2, (WIDTH - width * size) / 2 + i, (HEIGHT - height * size) / 2 + height * size);
-	for (int i = size; i < width * size; i += size)
-		line((WIDTH - width * size) / 2, (HEIGHT - height * size) / 2 + i, (WIDTH - width * size) / 2 + width * size, (HEIGHT - height * size) / 2 + i);
+    snake.body.clear();
+    snake.body.push_back({ cols / 2, rows / 2 });
+    snake.dir = RIGHT;
+    nextDir = STOP;
+    gameover = false;
+    score = 0;
 
-	// 默认移动方向为右
-	moveDirection = oldMoveDirection = 'd';
-	// 初始长度是 1
-	Blocks[rand() % width][rand() % height] = 1;
-
-	// 网格内产生食物
-	while (Blocks[foodX][foodY] != 0)
-	{
-		foodX = rand() % width;
-		foodY = rand() % height;
-	}
+    // 生成食物
+    while (true)
+    {
+        food = { rand() % cols, rand() % rows };
+        bool onSnake = false;
+        for (auto& p : snake.body)
+            if (p == food) onSnake = true;
+        if (!onSnake) break;
+    }
 }
 
-void show() 
+// 自动寻路
+Direction findPath()
 {
-	BeginBatchDraw();
-	// 屏幕刷新一轮
-	for (int i = 0; i < width; i++)
-		for (int j = 0; j < height; j++) 
-		{
-			if (Blocks[i][j] != 0)
-				// 已被填充使用渐变色
-				setfillcolor(HSVtoRGB(Blocks[i][j] * 10, 0.9, 1));
-			else
-				// 未被填充使用浅灰色
-				setfillcolor(gridColor[skinIndex]);
-			// 开始填充
-			fillrectangle((WIDTH - width * size) / 2 + i * size, (HEIGHT - height * size) / 2 + j * size, (WIDTH - width * size) / 2 + (i + 1) * size, (HEIGHT - height * size) / 2 + (j + 1) * size);
-		}
+    vector<vector<bool>> visited(cols, vector<bool>(rows, false));
+    queue<pair<pair<int, int>, Direction>> q;
+    auto head = snake.body.front();
 
-	// 使用绿色填充食物
-	setfillcolor(LIGHTGREEN);
-	fillrectangle((WIDTH - width * size) / 2 + foodX * size, (HEIGHT - height * size) / 2 + foodY * size, (WIDTH - width * size) / 2 + (foodX + 1) * size, (HEIGHT - height * size) / 2 + (foodY + 1) * size);
+    // 障碍物集合（蛇身）
+    vector<pair<int, int>> obstacles;
+    for (auto p : snake.body) obstacles.push_back(p);
 
-	// 执行未完成的绘制任务
-	FlushBatchDraw();
+    // 初始化队列
+    vector<Direction> dirs = { UP, DOWN, LEFT, RIGHT };
+    for (auto dir : dirs)
+    {
+        int dx = (dir == LEFT) ? -1 : (dir == RIGHT) ? 1 : 0;
+        int dy = (dir == UP) ? -1 : (dir == DOWN) ? 1 : 0;
+        int nx = head.first + dx;
+        int ny = head.second + dy;
 
-	// 判负流程
-	if (isFailure)
-	{
-		initFailure();
-		initGame();
-	}
+        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows)
+        {
+            bool valid = true;
+            for (auto p : obstacles)
+                if (p.first == nx && p.second == ny) valid = false;
+
+            if (valid)
+            {
+                q.push({ {nx, ny}, dir });
+                visited[nx][ny] = true;
+            }
+        }
+    }
+
+    // BFS搜索
+    while (!q.empty())
+    {
+        auto current = q.front();
+        q.pop();
+
+        if (current.first == food)
+            return current.second;
+
+        for (auto dir : dirs)
+        {
+            int dx = (dir == LEFT) ? -1 : (dir == RIGHT) ? 1 : 0;
+            int dy = (dir == UP) ? -1 : (dir == DOWN) ? 1 : 0;
+            int nx = current.first.first + dx;
+            int ny = current.first.second + dy;
+
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !visited[nx][ny])
+            {
+                bool valid = true;
+                for (auto p : obstacles)
+                    if (p.first == nx && p.second == ny) valid = false;
+
+                if (valid)
+                {
+                    visited[nx][ny] = true;
+                    q.push({ {nx, ny}, current.second });
+                }
+            }
+        }
+    }
+    return snake.dir;
 }
 
-void initFailure()
+// 游戏更新
+void update()
 {
-	drawFailure();
-	while (failureChoice != 3)
-		failureInput();
-	isFailure = 0;
-	failureChoice = 0;
+    if (gameover) return;
+
+    // 自动寻路逻辑
+    if (autoMode)
+    {
+        Direction aiDir = findPath();
+        if (aiDir != snake.dir && !(snake.dir == UP && aiDir == DOWN) &&
+            !(snake.dir == DOWN && aiDir == UP) &&
+            !(snake.dir == LEFT && aiDir == RIGHT) &&
+            !(snake.dir == RIGHT && aiDir == LEFT))
+        {
+            snake.dir = aiDir;
+        }
+    }
+
+    // 移动蛇头
+    pair<int, int> newHead = snake.body.front();
+    switch (snake.dir)
+    {
+    case UP:    newHead.second--; break;
+    case DOWN:  newHead.second++; break;
+    case LEFT:  newHead.first--;  break;
+    case RIGHT: newHead.first++;  break;
+    }
+
+    // 碰撞检测
+    if (newHead.first < 0 || newHead.first >= cols ||
+        newHead.second < 0 || newHead.second >= rows)
+    {
+        gameover = true;
+        return;
+    }
+    for (auto p : snake.body)
+    {
+        if (p == newHead)
+        {
+            gameover = true;
+            return;
+        }
+    }
+
+    // 添加新头
+    snake.body.push_front(newHead);
+
+    // 吃食物检测
+    if (newHead == food)
+    {
+        score += 10;
+        while (true)
+        {
+            food = { rand() % cols, rand() % rows };
+            bool valid = true;
+            for (auto p : snake.body)
+                if (p == food) valid = false;
+            if (valid) break;
+        }
+    }
+    else
+    {
+        snake.body.pop_back();
+    }
 }
 
-void drawFailure()
+// 绘制界面
+void draw()
 {
-	setbkcolor(backgroundColor[skinIndex]);
-	cleardevice();
+    cleardevice();
 
-	LOGFONT f;
-	gettextstyle(&f);
-	f.lfHeight = 100;
-	f.lfWidth = 50;
-	strcpy_s(f.lfFaceName, _T("Consolas"));
-	f.lfQuality = ANTIALIASED_QUALITY;
-	setbkmode(TRANSPARENT);
-	settextstyle(&f);
-	if(isFailure == 1)
-		for (int i = 0; i < 10; i++)
-		{
-			settextcolor(HSVtoRGB((i + 1) * 10, 0.9, 1));
-			outtextxy(150 + i * 50, 150, _T(failure[i]));
-		}
-	else
-		for (int i = 0; i < 7; i++)
-		{
-			settextcolor(HSVtoRGB((i + 1) * 10, 0.9, 1));
-			outtextxy(225 + i * 50, 150, _T(win[i]));
-		}
+    // 绘制背景和网格
+    setbkcolor(themes[themeIndex].bg);
+    cleardevice();
+    setlinecolor(themes[themeIndex].grid);
+    for (int i = 0; i <= cols; i++)
+        line(i * gridSize, 0, i * gridSize, HEIGHT);
+    for (int j = 0; j <= rows; j++)
+        line(0, j * gridSize, WIDTH, j * gridSize);
 
-	f.lfHeight = 20;
-	f.lfWidth = 10;
-	settextcolor(BLACK);
-	settextstyle(&f);
-	outtextxy(5, 5, _T("SCORE: "));
-	if (score > 0)
-	{
-		char scoreString[10];
-		sprintf_s(scoreString, "%d", score);
-		outtextxy(75, 5, _T(scoreString));
-	}
-	else
-		outtextxy(75, 5, _T("0"));
+    // 绘制蛇
+    bool isHead = true;
+    for (auto p : snake.body)
+    {
+        setfillcolor(isHead ? themes[themeIndex].head : themes[themeIndex].body);
+        solidrectangle(p.first * gridSize + 1, p.second * gridSize + 1,
+            (p.first + 1) * gridSize - 1, (p.second + 1) * gridSize - 1);
+        isHead = false;
+    }
 
-	// 失败界面的三个选项
-	f.lfHeight = 40;
-	f.lfWidth = 20;
-	f.lfWeight = 1000;
-	f.lfQuality = ANTIALIASED_QUALITY;
-	settextstyle(&f);
+    // 绘制食物
+    setfillcolor(themes[themeIndex].food);
+    solidrectangle(food.first * gridSize + 1, food.second * gridSize + 1,
+        (food.first + 1) * gridSize - 1, (food.second + 1) * gridSize - 1);
 
-	if (failureChoice == 0)
-	{
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(330, 340, _T("restart"));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 400, _T("menu"));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 460, _T("exit"));
-	}
-	else if(failureChoice == 1)
-	{
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(330, 340, _T("restart"));
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(360, 400, _T("menu"));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 460, _T("exit"));
-	}
-	else if (failureChoice == 2)
-	{
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(330, 340, _T("restart"));
-		// 未选中，亮蓝
-		settextcolor(0xFE0303);
-		outtextxy(360, 400, _T("menu"));
-		// 选中，鲜红
-		settextcolor(0x3E03FE);
-		outtextxy(360, 460, _T("exit"));
-	}
+    // 设置字体样式
+    static LOGFONT f;
+    gettextstyle(&f);
+    f.lfHeight = 20;
+    f.lfWeight = FW_BOLD;
+    f.lfQuality = ANTIALIASED_QUALITY;  // 启用字体抗锯齿
+    _tcscpy_s(f.lfFaceName, _T("黑体"));
+    settextstyle(&f);
+
+    // 绘制UI信息（带半透明背景）
+    settextcolor(RGB(0, 0, 0));  // 黑色字体
+    setbkmode(TRANSPARENT);
+
+    // 绘制半透明背景
+    COLORREF bgColor = themes[themeIndex].bg;
+    double blendRatio = 0.5; // 50%透明度
+    COLORREF blendedColor = RGB(
+        (GetRValue(bgColor) * (1 - blendRatio) + 255 * blendRatio),
+        (GetGValue(bgColor) * (1 - blendRatio) + 255 * blendRatio),
+        (GetBValue(bgColor) * (1 - blendRatio) + 255 * blendRatio)
+    );
+    setfillcolor(blendedColor);
+
+    char info[128];
+    int yPos = 10;
+    sprintf_s(info, "Score: %d", score);
+    outtextxy(10, yPos, info); yPos += 25;
+
+    sprintf_s(info, "Grid: %d", gridSize);
+    outtextxy(10, yPos, info); yPos += 25;
+
+    sprintf_s(info, "Theme: %d", themeIndex + 1);
+    outtextxy(10, yPos, info); yPos += 25;
+
+    sprintf_s(info, "Auto: %s", autoMode ? "On" : "Off");
+    outtextxy(10, yPos, info); yPos += 25;
+
+    sprintf_s(info, "Speed: %d/5", speedLevel);
+    outtextxy(10, yPos, info);
+
+    if (gameover)
+    {
+        settextcolor(RED);
+        settextstyle(40, 0, _T("黑体"));
+        outtextxy(WIDTH / 2 - 120, HEIGHT / 2 - 30, "Game Over!");
+    }
+
+    FlushBatchDraw();
 }
 
-void failureInput()
+int main()
 {
-	BeginBatchDraw();
+    initgraph(WIDTH, HEIGHT);
+    BeginBatchDraw();
+    srand(time(0));
+    initGame();
 
-	if (_kbhit() && isFailure == 0)
-	{
-		char input = _getch();
-		// 向上或向下选择
-		if (input == 'w' && failureChoice != 0)
-		{
-			failureChoice--;
-			drawFailure();
-		}
-		else if (input == 's' && failureChoice != 2)
-		{
-			failureChoice++;
-			drawFailure();
-		}
-		// 空格选定重新游戏
-		else if (input == ' ' && failureChoice == 0)
-		{
-			failureChoice = 3;
-			initGame();
-		}
-		// 空格选定菜单
-		else if (input == ' ' && failureChoice == 1)
-		{
-			failureChoice = 3;
-			initMenu();
-		}
-		// 空格选定退出游戏
-		else if (input == ' ' && failureChoice == 2)
-		{
-			failureChoice = 3;
-			gameOver = 1;
-		}
-	}
+    while (true)
+    {
+        int key = GetKey();
+        if (key)
+        {
+            switch (toupper(key))
+            {
+            case 'W': case VK_UP:    if (snake.dir != DOWN) nextDir = UP; break;
+            case 'S': case VK_DOWN:  if (snake.dir != UP) nextDir = DOWN; break;
+            case 'A': case VK_LEFT:  if (snake.dir != RIGHT) nextDir = LEFT; break;
+            case 'D': case VK_RIGHT: if (snake.dir != LEFT) nextDir = RIGHT; break;
+            case VK_SPACE: autoMode = !autoMode; break;
+            case 'C': themeIndex = (themeIndex + 1) % themes.size(); break;
+            case VK_OEM_PLUS:  // +号
+                if (gridSize < 40)
+                {
+                    gridSize += 4;
+                    cols = WIDTH / gridSize;
+                    rows = HEIGHT / gridSize;
+                    initGame();
+                }
+                break;
+            case VK_OEM_MINUS: // -号
+                if (gridSize > 12)
+                {
+                    gridSize -= 4;
+                    cols = WIDTH / gridSize;
+                    rows = HEIGHT / gridSize;
+                    initGame();
+                }
+                break;
+            case 'R': initGame(); break;
+            case 'F': // 加速
+                if (speedLevel < MAX_SPEED)
+                {
+                    speedLevel++;
+                    baseSpeed = 200 - (speedLevel - 3) * 95; // 修正计算公式
+                }
+                break;
+            case 'G': // 减速
+                if (speedLevel > MIN_SPEED)
+                {
+                    speedLevel--;
+                    baseSpeed = 200 - (speedLevel - 3) * 95; // 修正计算公式
+                }
+                break;
+            default: break;
+            }
+            if (nextDir != STOP) snake.dir = nextDir;
+        }
 
-	FlushBatchDraw();
-}
+        if (!gameover) update();
+        Sleep(baseSpeed);
+        draw(); 
+        if (gameover) initGame();
+    }
 
-void updateWithoutInput()
-{
-	// 非判负状态下执行
-	if (isFailure)
-		return;
-	// 等待 6 轮，可控制速度
-	static int waitIndex = 1;
-	waitIndex++;
-	if (waitIndex == delay)
-	{
-		// 移动一次蛇体
-		moveSnake();
-		waitIndex = 1;
-	}
-}
-
-void updateWithInput() 
-{
-	// _kbhit() 检查是否有键按下
-	if (_kbhit() && isFailure == 0)
-	{
-		// 获取一次输入，根据输入字符转换蛇体移动方向
-		char input = _getch();
-		if (input == 'a' || input == 's' || input == 'd' || input == 'w') 
-		{
-			moveDirection = input;
-			if (moveDirection == 'a' && oldMoveDirection == 'd')
-				moveDirection = 'a';
-			else if (moveDirection == 's' && oldMoveDirection == 'w')
-				moveDirection = 's';
-			else if (moveDirection == 'd' && oldMoveDirection == 'a')
-				moveDirection = 'd';
-			else if (moveDirection == 'w' && oldMoveDirection == 's')
-				moveDirection = 'w';
-			else oldMoveDirection = input;
-			moveSnake();
-		}
-		else if (input == '!')
-		{
-			// TODO: 自动模式
-		}
-	}
-}
-
-void moveSnake()
-{
-	int i, j;
-	// 对蛇身更新
-	for (i = 0; i < width; i++)
-		for (j = 0; j < height; j++)
-			if (Blocks[i][j] != 0)
-				Blocks[i][j]++;
-
-	// 寻找旧蛇头和旧蛇尾的坐标
-	int oldHeadX = 0, oldHeadY = 0, oldTailX = 0, oldTailY = 0;
-	int tailBlocks = 0;
-
-	for (i = 0; i < width; i++)
-		for (j = 0; j < height; j++)
-		{
-			if (tailBlocks < Blocks[i][j])
-			{
-				tailBlocks = Blocks[i][j];
-				oldTailX = i;
-				oldTailY = j;
-			}
-			if (Blocks[i][j] == 2)
-			{
-				oldHeadX = i;
-				oldHeadY = j;
-			}
-		}
-
-	// 根据蛇的移动方向来赋值新蛇头的xy坐标
-	int newHeadX = oldHeadX, newHeadY = oldHeadY;
-	switch (moveDirection)
-	{
-	case 'a':
-		newHeadX = (newHeadX - 1 + width) % width;
-		break;
-	case 's':
-		newHeadY = (newHeadY + 1) % height;
-		break;
-	case 'd':
-		newHeadX = (newHeadX + 1) % width;
-		break;
-	case 'w':
-		newHeadY = (newHeadY - 1 + height) % height;
-		break;
-	}
-
-	// 判胜
-	bool flag = 1;
-	for (int i = 0; i < width; i++)
-		for (int j = 0; j < height; j++)
-			if (Blocks[i][j] == 0)
-			{
-				flag = 0;
-				break;
-			}
-	if (flag)
-	{
-		isFailure = 2;
-		return;
-	}
-
-	// 判负
-	if (Blocks[newHeadX][newHeadY] != 0) 
-	{
-		isFailure = 1;
-		return;
-	}
-
-	// 对蛇头的处理
-	Blocks[newHeadX][newHeadY] = 1;
-	
-	// 对吃到食物以及蛇尾的处理
-	if (newHeadX == foodX && newHeadY == foodY) 
-	{
-		score++;
-		while (Blocks[foodX][foodY] != 0)
-		{
-			foodX = rand() % width;
-			foodY = rand() % height;
-		}
-	}
-	else
-		Blocks[oldTailX][oldTailY] = 0;
-}
-
-void transparentimage(IMAGE* dstimg, int x, int y, IMAGE* srcimg)
-{
-	HDC dstDC = GetImageHDC(dstimg);
-	HDC srcDC = GetImageHDC(srcimg);
-	int w = srcimg->getwidth();
-	int h = srcimg->getheight();
-	BLENDFUNCTION bf = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
-	AlphaBlend(dstDC, x, y, w, h, srcDC, 0, 0, w, h, bf);
-}
-
-char* int_to_string(int num)
-{
-	int digits = 0;
-	int temp = num;
-	while (temp > 0)
-	{
-		digits++;
-		temp /= 10;
-	}
-
-	char* str = (char*)malloc(digits + 2);
-
-	if (str == NULL)
-		return NULL;
-
-	str[digits] = '\0';
-
-	while (num > 0)
-	{
-		str[--digits] = (char)(num % 10 + '0');
-		num /= 10;
-	}
-
-	return str;
+    EndBatchDraw();
+    closegraph();
+    return 0;
 }
